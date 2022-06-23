@@ -9,6 +9,8 @@ const WIDTH = 800 - MARGIN.LEFT - MARGIN.RIGHT
 const HEIGHT = 500 - MARGIN.TOP - MARGIN.BOTTOM
 let coin = "bitcoin"
 
+const t = d3.transition().duration(100)
+
 const svg = d3.select("#chart-area").append("svg")
   .attr("width", WIDTH + MARGIN.LEFT + MARGIN.RIGHT)
   .attr("height", HEIGHT + MARGIN.TOP + MARGIN.BOTTOM)
@@ -32,14 +34,12 @@ const line = d3.line()
 
 // axis generators
 const xAxisCall = d3.axisBottom()
-/* const yAxisCall = d3.axisLeft()
-	.ticks(6)
-	.tickFormat(d => `${parseInt(d / 1000)}k`) */
 
 // axis groups
 const xAxis = g.append("g")
 	.attr("class", "x axis")
 	.attr("transform", `translate(0, ${HEIGHT})`)
+	.transition(t)
 const yAxis = g.append("g")
 	.attr("class", "y axis")
     
@@ -54,7 +54,6 @@ yAxis.append("text")
 	.text("Price USD ($)")
 
 d3.json("data/coins.json").then(data => {
-	update(data)
 	// clean data
 	Object.entries(data).forEach(entry => {
 		entry[1].forEach(day => {
@@ -80,9 +79,6 @@ d3.json("data/coins.json").then(data => {
 		.attr("stroke", "grey")
 		.attr("stroke-width", "3px")
 		.attr("d", line(data[coin]))
-/* 	// generate axes once scales have been set
-	xAxis.call(xAxisCall.scale(x))
-	yAxis.call(yAxisCall.scale(y)) */
 
 	/******************************** Tooltip Code ********************************/
 
@@ -127,10 +123,9 @@ d3.json("data/coins.json").then(data => {
 		focus.select(".y-hover-line").attr("x2", -x(d.date))
 	}
 	
-
+	update(data)
 	/******************************** Tooltip Code ********************************/
 	function update(data) {
-
 		// set & update scale domains
 		x.domain(d3.extent(data[coin], d => d.date))
 		y.domain([
@@ -143,10 +138,10 @@ d3.json("data/coins.json").then(data => {
 
 		// generate axis once scales are updated
 		xAxis.call(xAxisCall.scale(x))
-		yAxis.call(yAxisCall.scale(y))
+		yAxis.transition(t).call(yAxisCall.scale(y))
 
 		path.exit().remove()
 
-		path.attr("d", line(data[coin]))
+		path.transition(t).attr("d", line(data[coin]))
 	}
 })
