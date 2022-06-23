@@ -4,9 +4,10 @@
 *    6.8 - Line graphs in D3
 */
 		
-const MARGIN = { LEFT: 20, RIGHT: 100, TOP: 50, BOTTOM: 100 }
+const MARGIN = { LEFT: 50, RIGHT: 100, TOP: 50, BOTTOM: 100 }
 const WIDTH = 800 - MARGIN.LEFT - MARGIN.RIGHT
 const HEIGHT = 500 - MARGIN.TOP - MARGIN.BOTTOM
+let coin = "bitcoin"
 
 const svg = d3.select("#chart-area").append("svg")
   .attr("width", WIDTH + MARGIN.LEFT + MARGIN.RIGHT)
@@ -16,19 +17,24 @@ const g = svg.append("g")
   .attr("transform", `translate(${MARGIN.LEFT}, ${MARGIN.TOP})`)
 
 // time parser for x-scale
-const parseTime = d3.timeParse("%Y")
+const parseTime = d3.timeParse("%d/%m/%Y")
 // for tooltip
-const bisectDate = d3.bisector(d => d.year).left
+const bisectDate = d3.bisector(d => d.date).left
 
 // scales
 const x = d3.scaleTime().range([0, WIDTH])
 const y = d3.scaleLinear().range([HEIGHT, 0])
 
+// line path generator
+const line = d3.line()
+	.x(d => x(d.date))
+	.y(d => y(d.price_usd))
+
 // axis generators
 const xAxisCall = d3.axisBottom()
-const yAxisCall = d3.axisLeft()
+/* const yAxisCall = d3.axisLeft()
 	.ticks(6)
-	.tickFormat(d => `${parseInt(d / 1000)}k`)
+	.tickFormat(d => `${parseInt(d / 1000)}k`) */
 
 // axis groups
 const xAxis = g.append("g")
@@ -45,38 +51,38 @@ yAxis.append("text")
 	.attr("dy", ".71em")
 	.style("text-anchor", "end")
 	.attr("fill", "#5D6971")
-	.text("Population)")
+	.text("Price USD ($)")
 
-// line path generator
-const line = d3.line()
-	.x(d => x(d.year))
-	.y(d => y(d.value))
-
-d3.json("data/example.json").then(data => {
+d3.json("data/coins.json").then(data => {
+	update(data)
 	// clean data
-	data.forEach(d => {
-		d.year = parseTime(d.year)
-		d.value = Number(d.value)
+	Object.entries(data).forEach(entry => {
+		entry[1].forEach(day => {
+			day.date = parseTime(day.date)
+			day.market_cap = Number(day.market_cap)
+			day.price_usd = Number(day.price_usd)
+			day["24h_vol"] = Number(day["24h_vol"])
+		})
 	})
 
-	// set scale domains
-	x.domain(d3.extent(data, d => d.year))
-	y.domain([
-		d3.min(data, d => d.value) / 1.005, 
-		d3.max(data, d => d.value) * 1.005
-	])
-
-	// generate axes once scales have been set
-	xAxis.call(xAxisCall.scale(x))
-	yAxis.call(yAxisCall.scale(y))
+	// Update data whenever selection changes
+	$("#coin-select")
+		.on("change", () =>{
+			coin = $("#coin-select").val()
+			update(data)
+		})
+	
 
 	// add line to chart
-	g.append("path")
+		let path = g.append("path")
 		.attr("class", "line")
 		.attr("fill", "none")
 		.attr("stroke", "grey")
 		.attr("stroke-width", "3px")
-		.attr("d", line(data))
+		.attr("d", line(data[coin]))
+/* 	// generate axes once scales have been set
+	xAxis.call(xAxisCall.scale(x))
+	yAxis.call(yAxisCall.scale(y)) */
 
 	/******************************** Tooltip Code ********************************/
 
@@ -111,15 +117,36 @@ d3.json("data/example.json").then(data => {
 
 	function mousemove() {
 		const x0 = x.invert(d3.mouse(this)[0])
-		const i = bisectDate(data, x0, 1)
-		const d0 = data[i - 1]
-		const d1 = data[i]
-		const d = x0 - d0.year > d1.year - x0 ? d1 : d0
-		focus.attr("transform", `translate(${x(d.year)}, ${y(d.value)})`)
-		focus.select("text").text(d.value)
-		focus.select(".x-hover-line").attr("y2", HEIGHT - y(d.value))
-		focus.select(".y-hover-line").attr("x2", -x(d.year))
+		const i = bisectDate(data[coin], x0, 1)
+		const d0 = data[coin][i - 1]
+		const d1 = data[coin][i]
+		const d = x0 - d0.date > d1.date - x0 ? d1 : d0
+		focus.attr("transform", `translate(${x(d.date)}, ${y(d.price_usd)})`)
+		focus.select("text").text(d.price_usd)
+		focus.select(".x-hover-line").attr("y2", HEIGHT - y(d.price_usd))
+		focus.select(".y-hover-line").attr("x2", -x(d.date))
 	}
 	
+
 	/******************************** Tooltip Code ********************************/
+	function update(data) {
+
+		// set & update scale domains
+		x.domain(d3.extent(data[coin], d => d.date))
+		y.domain([
+			d3.min(data[coin], d => d.price_usd) / 1.005, 
+			d3.max(data[coin], d => d.price_usd) * 1.005
+		])
+
+		const yAxisCall = d3.axisLeft()
+		.ticks(6)
+
+		// generate axis once scales are updated
+		xAxis.call(xAxisCall.scale(x))
+		yAxis.call(yAxisCall.scale(y))
+
+		path.exit().remove()
+
+		path.attr("d", line(data[coin]))
+	}
 })
