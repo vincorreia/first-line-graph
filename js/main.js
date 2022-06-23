@@ -4,11 +4,12 @@
 *    6.8 - Line graphs in D3
 */
 		
-const MARGIN = { LEFT: 50, RIGHT: 100, TOP: 50, BOTTOM: 100 }
+const MARGIN = { LEFT: 100, RIGHT: 100, TOP: 50, BOTTOM: 100 }
 const WIDTH = 800 - MARGIN.LEFT - MARGIN.RIGHT
 const HEIGHT = 500 - MARGIN.TOP - MARGIN.BOTTOM
 let coin = "bitcoin"
-
+let information = "price_usd"
+let label_text = "Price in Dollars"
 const t = d3.transition().duration(100)
 
 const svg = d3.select("#chart-area").append("svg")
@@ -30,7 +31,7 @@ const y = d3.scaleLinear().range([HEIGHT, 0])
 // line path generator
 const line = d3.line()
 	.x(d => x(d.date))
-	.y(d => y(d.price_usd))
+	.y(d => y(d[information]))
 
 // axis generators
 const xAxisCall = d3.axisBottom()
@@ -44,7 +45,7 @@ const yAxis = g.append("g")
 	.attr("class", "y axis")
     
 // y-axis label
-yAxis.append("text")
+const yLabel = yAxis.append("text")
 	.attr("class", "axis-title")
 	.attr("transform", "rotate(-90)")
 	.attr("y", 6)
@@ -59,7 +60,7 @@ d3.json("data/coins.json").then(data => {
 		entry[1].forEach(day => {
 			day.date = parseTime(day.date)
 			day.market_cap = Number(day.market_cap)
-			day.price_usd = Number(day.price_usd)
+			day[information] = Number(day[information])
 			day["24h_vol"] = Number(day["24h_vol"])
 		})
 	})
@@ -71,6 +72,12 @@ d3.json("data/coins.json").then(data => {
 			update(data)
 		})
 	
+	$("#var-select")
+		.on("change", () => {
+			information = $("#var-select").val()
+			label_text = $("#var-select option:selected").text()
+			update(data)
+		})
 
 	// add line to chart
 		let path = g.append("path")
@@ -117,9 +124,9 @@ d3.json("data/coins.json").then(data => {
 		const d0 = data[coin][i - 1]
 		const d1 = data[coin][i]
 		const d = x0 - d0.date > d1.date - x0 ? d1 : d0
-		focus.attr("transform", `translate(${x(d.date)}, ${y(d.price_usd)})`)
-		focus.select("text").text(d.price_usd)
-		focus.select(".x-hover-line").attr("y2", HEIGHT - y(d.price_usd))
+		focus.attr("transform", `translate(${x(d.date)}, ${y(d[information])})`)
+		focus.select("text").text(d[information])
+		focus.select(".x-hover-line").attr("y2", HEIGHT - y(d[information]))
 		focus.select(".y-hover-line").attr("x2", -x(d.date))
 	}
 	
@@ -129,8 +136,8 @@ d3.json("data/coins.json").then(data => {
 		// set & update scale domains
 		x.domain(d3.extent(data[coin], d => d.date))
 		y.domain([
-			d3.min(data[coin], d => d.price_usd) / 1.005, 
-			d3.max(data[coin], d => d.price_usd) * 1.005
+			d3.min(data[coin], d => d[information]) / 1.005, 
+			d3.max(data[coin], d => d[information]) * 1.005
 		])
 
 		const yAxisCall = d3.axisLeft()
@@ -140,8 +147,13 @@ d3.json("data/coins.json").then(data => {
 		xAxis.call(xAxisCall.scale(x))
 		yAxis.transition(t).call(yAxisCall.scale(y))
 
+		// update Y label to the current information shown
+		yLabel.text(label_text)
+
+		// remove previous generated line on the graph
 		path.exit().remove()
 
+		// create new line on the graph with updated information.
 		path.transition(t).attr("d", line(data[coin]))
 	}
 })
